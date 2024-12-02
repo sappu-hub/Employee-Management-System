@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Form Designer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <style>
+        .form-container {
+            width: 50%;
+            margin: 0 auto;
+        }
+        .field-container {
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            cursor: grab;
+        }
+        .drag-handle {
+            cursor: grab;
+            background-color: #f5f5f5;
+            padding: 5px;
+            margin-bottom: 5px;
+            border: 1px solid #ddd;
+        }
+        .field-actions {
+            margin-top: 5px;
+        }
+        .form-preview {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Dynamic Form Designer</h1>
+        <input type="text" id="form-name" placeholder="Enter Form Name" style="width: 100%; margin-bottom: 20px;">
+        
+        <button id="add-field-btn">Add Field</button>
+        <div id="fields-container">
+            <!-- Dynamic fields will appear here -->
+        </div>
+
+        <button id="save-form-btn">Save Form</button>
+        
+        <h3>Form Preview:</h3>
+        <div id="form-preview" class="form-preview">
+            <!-- Form preview -->
+        </div>
+    </div>
+
+    <script>
+        const fieldsContainer = document.getElementById('fields-container');
+        const formPreview = document.getElementById('form-preview');
+        const formNameInput = document.getElementById('form-name');
+        const fields = []; // To store form field configurations
+
+        // Add Field Button Click
+        document.getElementById('add-field-btn').addEventListener('click', () => {
+            const fieldId = Date.now();
+            const fieldDiv = document.createElement('div');
+            fieldDiv.classList.add('field-container');
+            fieldDiv.setAttribute('data-id', fieldId);
+
+            fieldDiv.innerHTML = `
+                <div class="drag-handle">Drag Here</div>
+                <label>Field Label:</label>
+                <input type="text" class="field-label" placeholder="Field Label" style="width: 100%;">
+                <label>Field Type:</label>
+                <select class="field-type" style="width: 100%;">
+                    <option value="text">Text</option>
+                    <option value="number">Number</option>
+                    <option value="date">Date</option>
+                    <option value="password">Password</option>
+                </select>
+                <div class="field-actions">
+                    <button class="remove-field-btn">Remove</button>
+                </div>
+            `;
+
+            // Remove Field Button Click
+            fieldDiv.querySelector('.remove-field-btn').addEventListener('click', () => {
+                fieldsContainer.removeChild(fieldDiv);
+                updatePreview();
+            });
+
+            fieldsContainer.appendChild(fieldDiv);
+            updatePreview();
+        });
+
+        // Save Form Button Click
+        document.getElementById('save-form-btn').addEventListener('click', () => {
+            const formName = formNameInput.value.trim();
+            if (!formName) {
+                alert("Form name cannot be empty!");
+                return;
+            }
+
+            // Collect field data
+            const fields = Array.from(fieldsContainer.children).map((fieldDiv) => {
+                return {
+                    label: fieldDiv.querySelector('.field-label').value,
+                    type: fieldDiv.querySelector('.field-type').value,
+                };
+            });
+
+            // Save using AJAX
+            fetch('/save-dynamic-form/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: JSON.stringify({ name: formName, configuration: fields }),
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.success) {
+                        alert("Form saved successfully!");
+                    } else {
+                        alert("Error saving form: " + data.error);
+                    }
+                })
+                .catch((error) => console.error("Error:", error));
+        });
+
+        // Update Form Preview
+        function updatePreview() {
+            formPreview.innerHTML = '';
+            Array.from(fieldsContainer.children).forEach((fieldDiv) => {
+                const label = fieldDiv.querySelector('.field-label').value;
+                const type = fieldDiv.querySelector('.field-type').value;
+
+                const previewField = document.createElement('div');
+                previewField.innerHTML = `<label>${label}</label><input type="${type}" style="width: 100%;">`;
+                formPreview.appendChild(previewField);
+            });
+        }
+
+        // Make Fields Container Sortable
+        new Sortable(fieldsContainer, {
+            handle: '.drag-handle', // Only drag using the handle
+            animation: 150,
+            onEnd: () => {
+                updatePreview();
+            },
+        });
+    </script>
+</body>
+</html>
